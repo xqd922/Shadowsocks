@@ -211,22 +211,24 @@ Download() {
 Service(){
 	echo '
 [Unit]
-Description= Shadowsocks Rust Service
+Description=Shadowsocks Rust Service
 After=network-online.target
 Wants=network-online.target systemd-networkd-wait-online.service
+
 [Service]
-LimitNOFILE=32767 
 Type=simple
 User=root
+LimitNOFILE=32768
+ExecStart=/usr/local/bin/ssserver -c /etc/ss-rust/config.json
 Restart=on-failure
 RestartSec=5s
-DynamicUser=true
-ExecStartPre=/bin/sh -c 'ulimit -n 51200'
-ExecStart=/usr/local/bin/ss-rust -c /etc/ss-rust/config.json
+
 [Install]
 WantedBy=multi-user.target' > /etc/systemd/system/ss-rust.service
-systemctl enable --now ss-rust
-	echo -e "${Info} Shadowsocks Rust 服务配置完成！"
+
+    systemctl daemon-reload
+    systemctl enable ss-rust
+    echo -e "${Info} Shadowsocks Rust 服务配置完成！"
 }
 
 Installation_dependency(){
@@ -531,12 +533,21 @@ Install(){
 Start(){
 	check_installed_status
 	check_status
-	[[ "$status" == "running" ]] && echo -e "${Info} Shadowsocks Rust 已在运行 ！" && exit 1
-	systemctl start ss-rust
-	check_status
-	[[ "$status" == "running" ]] && echo -e "${Info} Shadowsocks Rust 启动成功 ！"
-    sleep 3s
-    Start_Menu
+	if [[ "$status" == "running" ]]; then
+		echo -e "${Info} Shadowsocks Rust 已在运行！"
+	else
+		systemctl start ss-rust
+		sleep 2
+		check_status
+		if [[ "$status" == "running" ]]; then
+			echo -e "${Info} Shadowsocks Rust 启动成功！"
+		else
+			echo -e "${Error} Shadowsocks Rust 启动失败！"
+			echo -e "请使用 systemctl status ss-rust 查看错误信息"
+		fi
+	fi
+	sleep 3s
+	Start_Menu
 }
 
 Stop(){
