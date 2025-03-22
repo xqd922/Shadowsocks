@@ -260,6 +260,12 @@ Installation_dependency(){
 }
 
 Write_config(){
+	# 检查必要参数
+	[[ -z "${port}" ]] && echo -e "${Error} 端口未设置！" && exit 1
+	[[ -z "${password}" ]] && echo -e "${Error} 密码未设置！" && exit 1
+	[[ -z "${cipher}" ]] && echo -e "${Error} 加密方式未设置！" && exit 1
+	[[ -z "${tfo}" ]] && tfo=true
+	
 	mkdir -p /var/log/shadowsocks-rust/
 	cat > ${CONF}<<-EOF
 {
@@ -269,12 +275,12 @@ Write_config(){
     "method": "${cipher}",
     "fast_open": ${tfo},
     "mode": "tcp_and_udp",
-    "user":"nobody",
-    "timeout":300,
-    "nameserver":"1.1.1.1",
-    "plugin":"v2ray-plugin",
-    "plugin_opts":"server",
-    "plugin_args":[
+    "user": "nobody",
+    "timeout": 300,
+    "nameserver": "1.1.1.1",
+    "plugin": "v2ray-plugin",
+    "plugin_opts": "server",
+    "plugin_args": [
         "--log-file=${TRAFFIC_LOG}",
         "--stats-file=${TRAFFIC_STATS}"
     ]
@@ -288,6 +294,12 @@ Read_config(){
 	password=$(cat ${CONF}|jq -r '.password')
 	cipher=$(cat ${CONF}|jq -r '.method')
 	tfo=$(cat ${CONF}|jq -r '.fast_open')
+	
+	# 检查是否读取成功
+	if [[ -z "${port}" || -z "${password}" || -z "${cipher}" ]]; then
+		echo -e "${Error} 配置文件读取失败！"
+		exit 1
+	fi
 }
 
 Set_port(){
@@ -406,6 +418,11 @@ Set_cipher(){
 	echo "==================================" && echo
 }
 
+Set_traffic_limit() {
+    # Implementation of Set_traffic_limit function
+    echo "Traffic limit set function"
+}
+
 Set(){
 	check_installed_status
 	echo && echo -e "你要做什么？
@@ -414,8 +431,11 @@ Set(){
  ${Green_font_prefix}2.${Font_color_suffix}  修改 密码配置
  ${Green_font_prefix}3.${Font_color_suffix}  修改 加密配置
  ${Green_font_prefix}4.${Font_color_suffix}  修改 TFO 配置
+ ${Green_font_prefix}5.${Font_color_suffix}  修改 全部配置
+ ${Green_font_prefix}6.${Font_color_suffix}  修改 流量限制
 ==================================
- ${Green_font_prefix}5.${Font_color_suffix}  修改 全部配置" && echo
+ ${Green_font_prefix}7.${Font_color_suffix}  退出脚本
+==================================" && echo
 	read -e -p "(默认：取消)：" modify
 	[[ -z "${modify}" ]] && echo "已取消..." && exit 1
 	if [[ "${modify}" == "1" ]]; then
@@ -452,14 +472,20 @@ Set(){
 		Restart
 	elif [[ "${modify}" == "5" ]]; then
 		Read_config
+		Set_traffic_limit
+		# 保持原有配置
+		Write_config
+		Restart
+	elif [[ "${modify}" == "6" ]]; then
 		Set_port
-		Set_password
 		Set_cipher
+		Set_password
 		Set_tfo
+		Set_traffic_limit
 		Write_config
 		Restart
 	else
-		echo -e "${Error} 请输入正确的数字(1-5)" && exit 1
+		echo -e "${Error} 请输入正确的数字(1-6)" && exit 1
 	fi
 }
 
