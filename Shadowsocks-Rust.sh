@@ -240,23 +240,23 @@ Installation_dependency(){
 	
 	# 安装 v2ray-plugin
 	echo -e "${Info} 开始安装 v2ray-plugin 插件..."
-	# 使用更可靠的下载地址和文件名格式
-	local latest_version="v1.3.2"
-	local filename="v2ray-plugin-linux-${arch}-${latest_version}"
-	local download_url="https://github.com/shadowsocks/v2ray-plugin/releases/download/${latest_version}/${filename}.tar.gz"
+	# 使用固定版本和正确的文件名格式
+	local plugin_ver="v1.3.2"
+	local plugin_file="v2ray-plugin-linux-amd64-${plugin_ver}.tar.gz"
+	local download_url="https://github.com/teddysun/v2ray-plugin/releases/download/${plugin_ver}/${plugin_file}"
 	
-	wget --no-check-certificate -O v2ray-plugin.tar.gz "${download_url}" || {
-		echo -e "${Error} v2ray-plugin 下载失败，尝试备用下载..."
-		# 备用下载地址
-		download_url="https://github.com/teddysun/v2ray-plugin/releases/download/${latest_version}/${filename}.tar.gz"
-		wget --no-check-certificate -O v2ray-plugin.tar.gz "${download_url}"
+	# 下载和安装
+	wget --no-check-certificate -O ${plugin_file} "${download_url}" || {
+		echo -e "${Error} v2ray-plugin 下载失败，尝试备用地址..."
+		download_url="https://github.com/shadowsocks/v2ray-plugin/releases/download/${plugin_ver}/${plugin_file}"
+		wget --no-check-certificate -O ${plugin_file} "${download_url}"
 	}
 	
-	if [[ -f "v2ray-plugin.tar.gz" ]]; then
-		tar -xzf v2ray-plugin.tar.gz
-		mv v2ray-plugin /usr/local/bin/
+	if [[ -f "${plugin_file}" ]]; then
+		tar -xzf "${plugin_file}"
+		mv v2ray-plugin_linux_amd64 /usr/local/bin/v2ray-plugin
 		chmod +x /usr/local/bin/v2ray-plugin
-		rm -f v2ray-plugin.tar.gz
+		rm -f "${plugin_file}"
 		
 		if [[ -x "/usr/local/bin/v2ray-plugin" ]]; then
 			echo -e "${Info} v2ray-plugin 插件安装成功！"
