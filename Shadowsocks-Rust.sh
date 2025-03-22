@@ -240,20 +240,33 @@ Installation_dependency(){
 	
 	# 安装 v2ray-plugin
 	echo -e "${Info} 开始安装 v2ray-plugin 插件..."
-	local latest_version=$(wget -qO- https://api.github.com/repos/shadowsocks/v2ray-plugin/releases/latest | grep "tag_name" | cut -d\" -f4)
-	local download_url="https://github.com/shadowsocks/v2ray-plugin/releases/download/${latest_version}/v2ray-plugin-linux-${arch}-${latest_version}.tar.gz"
+	# 使用更可靠的下载地址和文件名格式
+	local latest_version="v1.3.2"
+	local filename="v2ray-plugin-linux-${arch}-${latest_version}"
+	local download_url="https://github.com/shadowsocks/v2ray-plugin/releases/download/${latest_version}/${filename}.tar.gz"
 	
-	wget --no-check-certificate -O v2ray-plugin.tar.gz ${download_url}
-	tar -xzf v2ray-plugin.tar.gz
-	mv v2ray-plugin_linux_${arch} /usr/local/bin/v2ray-plugin
-	chmod +x /usr/local/bin/v2ray-plugin
-	rm -f v2ray-plugin.tar.gz
+	wget --no-check-certificate -O v2ray-plugin.tar.gz "${download_url}" || {
+		echo -e "${Error} v2ray-plugin 下载失败，尝试备用下载..."
+		# 备用下载地址
+		download_url="https://github.com/teddysun/v2ray-plugin/releases/download/${latest_version}/${filename}.tar.gz"
+		wget --no-check-certificate -O v2ray-plugin.tar.gz "${download_url}"
+	}
 	
-	if [[ ! -e "/usr/local/bin/v2ray-plugin" ]]; then
-		echo -e "${Error} v2ray-plugin 插件安装失败！"
-		exit 1
+	if [[ -f "v2ray-plugin.tar.gz" ]]; then
+		tar -xzf v2ray-plugin.tar.gz
+		mv v2ray-plugin /usr/local/bin/
+		chmod +x /usr/local/bin/v2ray-plugin
+		rm -f v2ray-plugin.tar.gz
+		
+		if [[ -x "/usr/local/bin/v2ray-plugin" ]]; then
+			echo -e "${Info} v2ray-plugin 插件安装成功！"
+		else
+			echo -e "${Error} v2ray-plugin 插件安装失败！"
+			exit 1
+		fi
 	else
-		echo -e "${Info} v2ray-plugin 插件安装成功！"
+		echo -e "${Error} v2ray-plugin 下载失败！"
+		exit 1
 	fi
 	
 	\cp -f /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
@@ -265,6 +278,12 @@ Write_config(){
 	[[ -z "${password}" ]] && echo -e "${Error} 密码未设置！" && exit 1
 	[[ -z "${cipher}" ]] && echo -e "${Error} 加密方式未设置！" && exit 1
 	[[ -z "${tfo}" ]] && tfo=true
+	
+	# 检查 v2ray-plugin 是否安装
+	if [[ ! -x "/usr/local/bin/v2ray-plugin" ]]; then
+		echo -e "${Error} v2ray-plugin 未安装或无执行权限！"
+		exit 1
+	fi
 	
 	mkdir -p /var/log/shadowsocks-rust/
 	cat > ${CONF}<<-EOF
