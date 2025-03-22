@@ -17,6 +17,8 @@ FILE="/usr/local/bin/ss-rust"
 CONF="/etc/ss-rust/config.json"
 Now_ver_File="/etc/ss-rust/ver.txt"
 Local="/etc/sysctl.d/local.conf"
+TRAFFIC_FILE="/var/log/ss-rust/traffic.json"
+DEFAULT_TRAFFIC_LIMIT="1000" # 默认1000GB
 
 Green_font_prefix="\033[32m" && Red_font_prefix="\033[31m" && Green_background_prefix="\033[42;37m" && Red_background_prefix="\033[41;37m" && Font_color_suffix="\033[0m" && Yellow_font_prefix="\033[0;33m"
 Info="${Green_font_prefix}[信息]${Font_color_suffix}"
@@ -220,6 +222,9 @@ Installation_dependency(){
 }
 
 Write_config(){
+	mkdir -p /var/log/ss-rust
+	touch "${TRAFFIC_FILE}"
+	
 	cat > ${CONF}<<-EOF
 {
     "server": "::",
@@ -228,9 +233,12 @@ Write_config(){
     "method": "${cipher}",
     "fast_open": ${tfo},
     "mode": "tcp_and_udp",
-    "user":"nobody",
-    "timeout":300,
-    "nameserver":"1.1.1.1"
+    "user": "nobody",
+    "timeout": 300,
+    "nameserver": "1.1.1.1",
+    "statistics": true,
+    "traffic_limit": $((${traffic_limit:-${DEFAULT_TRAFFIC_LIMIT}} * 1024 * 1024 * 1024)),
+    "traffic_stats_file": "${TRAFFIC_FILE}"
 }
 EOF
 }
@@ -360,6 +368,15 @@ Set_cipher(){
 	echo "==================================" && echo
 }
 
+Set_traffic_limit(){
+	echo -e "请设置流量限制(单位: GB)"
+	read -e -p "(默认: ${DEFAULT_TRAFFIC_LIMIT} GB)：" traffic_limit
+	[[ -z "${traffic_limit}" ]] && traffic_limit="${DEFAULT_TRAFFIC_LIMIT}"
+	echo && echo "=================================="
+	echo -e "流量限制：${Red_background_prefix} ${traffic_limit} GB ${Font_color_suffix}"
+	echo "==================================" && echo
+}
+
 Set(){
 	check_installed_status
 	echo && echo -e "你要做什么？
@@ -368,8 +385,9 @@ Set(){
  ${Green_font_prefix}2.${Font_color_suffix}  修改 加密配置
  ${Green_font_prefix}3.${Font_color_suffix}  修改 密码配置
  ${Green_font_prefix}4.${Font_color_suffix}  修改 TFO 配置
+ ${Green_font_prefix}5.${Font_color_suffix}  修改 流量限制
 ==================================
- ${Green_font_prefix}5.${Font_color_suffix}  修改 全部配置" && echo
+ ${Green_font_prefix}6.${Font_color_suffix}  修改 全部配置" && echo
 	read -e -p "(默认：取消)：" modify
 	[[ -z "${modify}" ]] && echo "已取消..." && exit 1
 	if [[ "${modify}" == "1" ]]; then
@@ -406,14 +424,24 @@ Set(){
 		Restart
 	elif [[ "${modify}" == "5" ]]; then
 		Read_config
+		Set_traffic_limit
+		cipher=${cipher}
+		port=${port}
+		password=${password}
+		tfo=${tfo}
+		Write_config
+		Restart
+	elif [[ "${modify}" == "6" ]]; then
+		Read_config
 		Set_port
 		Set_cipher
 		Set_password
 		Set_tfo
+		Set_traffic_limit
 		Write_config
 		Restart
 	else
-		echo -e "${Error} 请输入正确的数字(1-5)" && exit 1
+		echo -e "${Error} 请输入正确的数字(1-6)" && exit 1
 	fi
 }
 
@@ -424,6 +452,7 @@ Install(){
 	Set_cipher
 	Set_password
 	Set_tfo
+	Set_traffic_limit
 	echo -e "${Info} 开始安装/配置 依赖..."
 	Installation_dependency
 	echo -e "${Info} 开始下载/安装..."
@@ -635,7 +664,8 @@ Shadowsocks Rust 管理脚本 ${Red_font_prefix}[v${sh_ver}]${Font_color_suffix}
  ${Green_font_prefix} 8.${Font_color_suffix} 查看 配置信息
  ${Green_font_prefix} 9.${Font_color_suffix} 查看 运行状态
 ——————————————————————————————————
- ${Green_font_prefix} 10.${Font_color_suffix} 退出脚本
+ ${Green_font_prefix}10.${Font_color_suffix} 设置流量限制
+ ${Green_font_prefix}11.${Font_color_suffix} 退出脚本
 ==================================" && echo
 	if [[ -e ${FILE} ]]; then
 		check_status
@@ -648,7 +678,7 @@ Shadowsocks Rust 管理脚本 ${Red_font_prefix}[v${sh_ver}]${Font_color_suffix}
 		echo -e " 当前状态：${Red_font_prefix}未安装${Font_color_suffix}"
 	fi
 	echo
-	read -e -p " 请输入数字 [0-10]：" num
+	read -e -p " 请输入数字 [0-11]：" num
 	case "$num" in
 		0)
 		Update_Shell
@@ -681,10 +711,15 @@ Shadowsocks Rust 管理脚本 ${Red_font_prefix}[v${sh_ver}]${Font_color_suffix}
 		Status
 		;;
 		10)
+		Set_traffic_limit
+		Write_config
+		Restart
+		;;
+		11)
 		exit 1
 		;;
 		*)
-		echo "请输入正确数字 [0-10]"
+		echo "请输入正确数字 [0-11]"
 		;;
 	esac
 }

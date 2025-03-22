@@ -17,6 +17,8 @@ FILE="/usr/local/bin/ss-rust"
 CONF="/etc/ss-rust/config.json"
 Now_ver_File="/etc/ss-rust/ver.txt"
 Local="/etc/sysctl.d/local.conf"
+TRAFFIC_LOG="/var/log/shadowsocks-rust/traffic.log"
+TRAFFIC_STATS="/var/log/shadowsocks-rust/stats.json"
 
 Green_font_prefix="\033[32m" && Red_font_prefix="\033[31m" && Green_background_prefix="\033[42;37m" && Red_background_prefix="\033[41;37m" && Font_color_suffix="\033[0m" && Yellow_font_prefix="\033[0;33m"
 Info="${Green_font_prefix}[信息]${Font_color_suffix}"
@@ -230,15 +232,35 @@ systemctl enable --now ss-rust
 Installation_dependency(){
 	if [[ ${release} == "centos" ]]; then
 		yum update
-		yum install jq gzip wget curl unzip xz openssl -y
+		yum install jq gzip wget curl unzip xz openssl bc -y
 	else
 		apt-get update
-		apt-get install jq gzip wget curl unzip xz-utils openssl -y
+		apt-get install jq gzip wget curl unzip xz-utils openssl bc -y
 	fi
+	
+	# 安装 v2ray-plugin
+	echo -e "${Info} 开始安装 v2ray-plugin 插件..."
+	local latest_version=$(wget -qO- https://api.github.com/repos/shadowsocks/v2ray-plugin/releases/latest | grep "tag_name" | cut -d\" -f4)
+	local download_url="https://github.com/shadowsocks/v2ray-plugin/releases/download/${latest_version}/v2ray-plugin-linux-${arch}-${latest_version}.tar.gz"
+	
+	wget --no-check-certificate -O v2ray-plugin.tar.gz ${download_url}
+	tar -xzf v2ray-plugin.tar.gz
+	mv v2ray-plugin_linux_${arch} /usr/local/bin/v2ray-plugin
+	chmod +x /usr/local/bin/v2ray-plugin
+	rm -f v2ray-plugin.tar.gz
+	
+	if [[ ! -e "/usr/local/bin/v2ray-plugin" ]]; then
+		echo -e "${Error} v2ray-plugin 插件安装失败！"
+		exit 1
+	else
+		echo -e "${Info} v2ray-plugin 插件安装成功！"
+	fi
+	
 	\cp -f /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
 }
 
 Write_config(){
+	mkdir -p /var/log/shadowsocks-rust/
 	cat > ${CONF}<<-EOF
 {
     "server": "::",
@@ -249,7 +271,13 @@ Write_config(){
     "mode": "tcp_and_udp",
     "user":"nobody",
     "timeout":300,
-    "nameserver":"8.8.8.8"
+    "nameserver":"1.1.1.1",
+    "plugin":"v2ray-plugin",
+    "plugin_opts":"server",
+    "plugin_args":[
+        "--log-file=${TRAFFIC_LOG}",
+        "--stats-file=${TRAFFIC_STATS}"
+    ]
 }
 EOF
 }
@@ -505,6 +533,7 @@ Uninstall(){
         systemctl disable ss-rust
 		rm -rf "${FOLDER}"
 		rm -rf "${FILE}"
+		rm -f /usr/local/bin/v2ray-plugin  # 删除插件
 		echo && echo "Shadowsocks Rust 卸载完成！" && echo
 	else
 		echo && echo "卸载已取消..." && echo
@@ -578,6 +607,7 @@ View(){
 	echo -e "$(uname -n) = ss,${ipv6},${port},encrypt-method=${cipher},password=${password},tfo=${tfo},udp-relay=true,ecn=true"
 	fi
   echo -e "—————————————————————————"
+	View_Traffic
 	Before_Start_Menu
 }
 
@@ -645,7 +675,8 @@ Shadowsocks Rust 管理脚本 ${Red_font_prefix}[v${sh_ver}]${Font_color_suffix}
  ${Green_font_prefix} 8.${Font_color_suffix} 查看 配置信息
  ${Green_font_prefix} 9.${Font_color_suffix} 查看 运行状态
 ——————————————————————————————————
- ${Green_font_prefix} 10.${Font_color_suffix} 退出脚本
+ ${Green_font_prefix}10.${Font_color_suffix} 查看流量统计
+ ${Green_font_prefix}11.${Font_color_suffix} 退出脚本
 ==================================" && echo
 	if [[ -e ${FILE} ]]; then
 		check_status
@@ -658,7 +689,7 @@ Shadowsocks Rust 管理脚本 ${Red_font_prefix}[v${sh_ver}]${Font_color_suffix}
 		echo -e " 当前状态：${Red_font_prefix}未安装${Font_color_suffix}"
 	fi
 	echo
-	read -e -p " 请输入数字 [0-10]：" num
+	read -e -p " 请输入数字 [0-11]：" num
 	case "$num" in
 		0)
 		Update_Shell
@@ -691,11 +722,32 @@ Shadowsocks Rust 管理脚本 ${Red_font_prefix}[v${sh_ver}]${Font_color_suffix}
 		Status
 		;;
 		10)
+		View_Traffic
+		;;
+		11)
 		exit 1
 		;;
 		*)
-		echo "请输入正确数字 [0-10]"
+		echo "请输入正确数字 [0-11]"
 		;;
 	esac
 }
+
+# 创建流量统计函数
+View_Traffic(){
+    if [[ -f ${TRAFFIC_STATS} ]]; then
+        echo -e "流量统计："
+        echo -e "——————————————————"
+        local upload=$(cat ${TRAFFIC_STATS} | grep "upload" | awk '{print $2}')
+        local download=$(cat ${TRAFFIC_STATS} | grep "download" | awk '{print $2}')
+        local upload_gb=$(echo "scale=2; ${upload:-0}/1024/1024/1024" | bc)
+        local download_gb=$(echo "scale=2; ${download:-0}/1024/1024/1024" | bc)
+        echo -e "上传流量：${upload_gb} GB"
+        echo -e "下载流量：${download_gb} GB"
+        echo -e "——————————————————"
+    else
+        echo -e "${Error} 流量统计文件不存在"
+    fi
+}
+
 Start_Menu
