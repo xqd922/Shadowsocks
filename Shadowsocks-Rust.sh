@@ -452,75 +452,55 @@ Set_cipher(){
 	echo "==================================" && echo
 }
 
-Set_traffic_limit() {
-    # Implementation of Set_traffic_limit function
-    echo "Traffic limit set function"
-}
-
 Set(){
-	check_installed_status
-	echo && echo -e "你要做什么？
+    check_installed_status
+    echo && echo -e "你要做什么？
 ==================================
  ${Green_font_prefix}1.${Font_color_suffix}  修改 端口配置
  ${Green_font_prefix}2.${Font_color_suffix}  修改 密码配置
  ${Green_font_prefix}3.${Font_color_suffix}  修改 加密配置
  ${Green_font_prefix}4.${Font_color_suffix}  修改 TFO 配置
- ${Green_font_prefix}5.${Font_color_suffix}  修改 全部配置
- ${Green_font_prefix}6.${Font_color_suffix}  修改 流量限制
+ ${Green_font_prefix}5.${Font_color_suffix}  修改 流量限制
 ==================================
- ${Green_font_prefix}7.${Font_color_suffix}  退出脚本
-==================================" && echo
-	read -e -p "(默认：取消)：" modify
-	[[ -z "${modify}" ]] && echo "已取消..." && exit 1
-	if [[ "${modify}" == "1" ]]; then
-		Read_config
-		Set_port
-		password=${password}
-		cipher=${cipher}
-		tfo=${tfo}
-		Write_config
-		Restart
-	elif [[ "${modify}" == "2" ]]; then
-		Read_config
-		Set_password
-		port=${port}
-		cipher=${cipher}
-		tfo=${tfo}
-		Write_config
-		Restart
-	elif [[ "${modify}" == "3" ]]; then
-		Read_config
-		Set_cipher
-		port=${port}
-		password=${password}
-		tfo=${tfo}
-		Write_config
-		Restart
-	elif [[ "${modify}" == "4" ]]; then
-		Read_config
-		Set_tfo
-		cipher=${cipher}
-		port=${port}
-		password=${password}
-		Write_config
-		Restart
-	elif [[ "${modify}" == "5" ]]; then
-		Read_config
-		Set_traffic_limit
-		# 保持原有配置
-		Write_config
-		Restart
-	elif [[ "${modify}" == "6" ]]; then
-		Set_port
-		Set_cipher
-		Set_password
-		Set_tfo
-		Set_traffic_limit
-		Write_config
-		Restart
-	else
-		echo -e "${Error} 请输入正确的数字(1-6)" && exit 1
-	fi
+ ${Green_font_prefix}6.${Font_color_suffix}  修改 全部配置" && echo
+    read -e -p "(默认：取消)：" modify
+    [[ -z "${modify}" ]] && echo "已取消..." && exit 1
+    if [[ "${modify}" == "1" ]]; then
+        Read_config
+        Set_port
+        Write_config
+        Restart
+    elif [[ "${modify}" == "2" ]]; then
+        Read_config
+        Set_password
+        Write_config
+        Restart
+    elif [[ "${modify}" == "3" ]]; then
+        Read_config
+        Set_cipher
+        Write_config
+        Restart
+    elif [[ "${modify}" == "4" ]]; then
+        Read_config
+        Set_tfo
+        Write_config
+        Restart
+    elif [[ "${modify}" == "5" ]]; then
+        Read_config
+        Set_traffic_limit
+        Write_config
+        Restart
+    elif [[ "${modify}" == "6" ]]; then
+        Set_port
+        Set_password
+        Set_cipher
+        Set_tfo
+        Set_traffic_limit
+        Write_config
+        Restart
+    else
+        echo -e "${Error} 请输入正确的数字(1-6)" && exit 1
+    fi
 }
 
 Install(){
