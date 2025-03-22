@@ -199,13 +199,13 @@ backup_Download() {
 Download() {
 	if [[ ! -e "${FOLDER}" ]]; then
 		mkdir "${FOLDER}"
-	# else
-		# [[ -e "${FILE}" ]] && rm -rf "${FILE}"
 	fi
 	stable_Download
 	if [[ $? != 0 ]]; then
 		backup_Download
 	fi
+	# 创建软链接
+	ln -sf /usr/local/bin/ssserver /usr/local/bin/ss-rust
 }
 
 Service(){
