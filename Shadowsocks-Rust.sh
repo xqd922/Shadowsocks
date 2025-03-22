@@ -274,21 +274,37 @@ Installation_dependency(){
 	\cp -f /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
 }
 
+# 添加流量限制设置函数
+Set_traffic_limit(){
+    echo -e "请设置流量限制大小(单位: GB)"
+    read -e -p "(默认: 1000 GB)：" traffic_limit_gb
+    [[ -z "${traffic_limit_gb}" ]] && traffic_limit_gb="1000"
+    
+    # 检查输入是否为数字
+    expr ${traffic_limit_gb} + 0 &>/dev/null
+    if [[ $? -eq 0 ]]; then
+        # 转换为字节
+        traffic_limit=$((${traffic_limit_gb} * 1024 * 1024 * 1024))
+        echo && echo "=================================="
+        echo -e "流量限制：${Red_background_prefix} ${traffic_limit_gb} GB ${Font_color_suffix}"
+        echo "==================================" && echo
+    else
+        echo -e "${Error} 请输入正确的数字！"
+        Set_traffic_limit
+    fi
+}
+
+# 修改 Write_config 函数
 Write_config(){
-	# 检查必要参数
-	[[ -z "${port}" ]] && echo -e "${Error} 端口未设置！" && exit 1
-	[[ -z "${password}" ]] && echo -e "${Error} 密码未设置！" && exit 1
-	[[ -z "${cipher}" ]] && echo -e "${Error} 加密方式未设置！" && exit 1
-	[[ -z "${tfo}" ]] && tfo=true
-	
-	# 检查 v2ray-plugin 是否安装
-	if [[ ! -x "/usr/local/bin/v2ray-plugin" ]]; then
-		echo -e "${Error} v2ray-plugin 未安装或无执行权限！"
-		exit 1
-	fi
-	
-	mkdir -p /var/log/shadowsocks-rust/
-	cat > ${CONF}<<-EOF
+    # 检查必要参数
+    [[ -z "${port}" ]] && echo -e "${Error} 端口未设置！" && exit 1
+    [[ -z "${password}" ]] && echo -e "${Error} 密码未设置！" && exit 1
+    [[ -z "${cipher}" ]] && echo -e "${Error} 加密方式未设置！" && exit 1
+    [[ -z "${tfo}" ]] && tfo=true
+    [[ -z "${traffic_limit}" ]] && traffic_limit=$((1000 * 1024 * 1024 * 1024))  # 默认1000GB
+    
+    mkdir -p /var/log/shadowsocks-rust/
+    cat > ${CONF}<<-EOF
 {
     "server": "::",
     "server_port": ${port},
@@ -299,12 +315,9 @@ Write_config(){
     "user": "nobody",
     "timeout": 300,
     "nameserver": "1.1.1.1",
-    "plugin": "v2ray-plugin",
-    "plugin_opts": "server",
-    "plugin_args": [
-        "--log-file=${TRAFFIC_LOG}",
-        "--stats-file=${TRAFFIC_STATS}"
-    ]
+    "statistics": true,
+    "traffic_stats_file": "${TRAFFIC_STATS}",
+    "traffic_limit": ${traffic_limit}
 }
 EOF
 }
